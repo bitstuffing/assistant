@@ -39,6 +39,8 @@ As a quick start, ``POST`` to https://snowboy.kitt.ai/api/v1/train:
 
 then you'll get a trained personal model in return!
 
+Si tienes alguna duda puedes consultar su web (https://snowboy.kitt.ai/docspartials/docs/index.html)
+
 También es importante que la carpeta resources contiene los archivos compilados desde una Raspberry Pi 4 corriendo Raspbian 10 para ser ejecutado sobre Python3[.7]. Si deseas utilizarlo en otro dispositivo deberás compilártelo tú mismo utilizando el código del github oficial de Snowboy.
 
 Enjoy!
