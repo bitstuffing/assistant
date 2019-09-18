@@ -57,6 +57,7 @@ CLOSE_MICROPHONE = embedded_assistant_pb2.DialogStateOut.CLOSE_MICROPHONE
 PLAYING = embedded_assistant_pb2.ScreenOutConfig.PLAYING
 DEFAULT_GRPC_DEADLINE = 60 * 3 + 5
 
+from datetime import datetime
 
 class SampleAssistant(object):
     """Sample Assistant that supports conversations and device actions.
@@ -80,6 +81,8 @@ class SampleAssistant(object):
         self.device_id = device_id
         self.conversation_stream = conversation_stream
         self.display = display
+        self.requestText = ""
+        self.responseText = ""
 
         # Opaque blob provided in AssistResponse that,
         # when provided in a follow-up AssistRequest,
@@ -125,7 +128,7 @@ class SampleAssistant(object):
         device_actions_futures = []
 
         self.conversation_stream.start_recording()
-        logging.info('Recording audio request.')
+        logging.debug('Recording audio request.')
 
         def iter_log_assist_requests():
             for c in self.gen_assist_requests():
@@ -137,21 +140,34 @@ class SampleAssistant(object):
         # received from the gRPC Google Assistant API.
         for resp in self.assistant.Assist(iter_log_assist_requests(),
                                           self.deadline):
-            assistant_helpers.log_assist_response_without_audio(resp)
+            responseCopy = assistant_helpers.log_assist_response_without_audio(resp)
+            if responseCopy is not None:
+                responseCopy = str(responseCopy)
+                logging.debug(responseCopy)
+                #classify
+                if 'transcript: "' in responseCopy:
+                   requestText = responseCopy[responseCopy.find('transcript: "')+len('transcript: "'):]
+                   requestText = requestText[:requestText.find('"')]
+                   self.requestText = requestText
+                elif 'supplemental_display_text: "' in responseCopy:
+                   responseText = responseCopy[responseCopy.find('supplemental_display_text: "')+len('supplemental_display_text: "'):]
+                   responseText = responseText[:responseText.find('"')]
+                   self.responseText = responseText
+                self.lastResponse = responseCopy
             if resp.event_type == END_OF_UTTERANCE:
                 logging.info('End of audio request detected.')
                 logging.info('Stopping recording.')
                 self.conversation_stream.stop_recording()
             if resp.speech_results:
-                logging.info('Transcript of user request: "%s".',
-                             ' '.join(r.transcript
-                                      for r in resp.speech_results))
+                textResult = ' '.join(r.transcript for r in resp.speech_results)
+                logging.info('Transcript of user request: "%s".',textResult)
             if len(resp.audio_out.audio_data) > 0:
                 if not self.conversation_stream.playing:
                     self.conversation_stream.stop_recording()
                     self.conversation_stream.start_playback()
                     logging.info('Playing assistant response.')
                 self.conversation_stream.write(resp.audio_out.audio_data)
+                #print(str(len(resp.audio_out.audio_data)))
             if resp.dialog_state_out.conversation_state:
                 conversation_state = resp.dialog_state_out.conversation_state
                 logging.debug('Updating conversation state.')
@@ -182,7 +198,8 @@ class SampleAssistant(object):
 
         logging.info('Finished playing assistant response.')
         self.conversation_stream.stop_playback()
-        return continue_conversation
+#        return continue_conversation
+        return self.conversation_stream
 
     def gen_assist_requests(self):
         """Yields: AssistRequest messages to send to the API."""
@@ -314,7 +331,7 @@ def main(api_endpoint, credentials, project_id,
         $ python -m googlesamples.assistant -i <input file> -o <output file>
     """
     # Setup logging.
-    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     # Load OAuth 2.0 credentials.
     try:
@@ -351,21 +368,27 @@ def main(api_endpoint, credentials, project_id,
                 flush_size=audio_flush_size
             )
         )
-    if output_audio_file:
-        audio_sink = audio_helpers.WaveSink(
-            open(output_audio_file, 'wb'),
-            sample_rate=audio_sample_rate,
-            sample_width=audio_sample_width
-        )
-    else:
-        audio_sink = audio_device = (
-            audio_device or audio_helpers.SoundDeviceStream(
-                sample_rate=audio_sample_rate,
-                sample_width=audio_sample_width,
-                block_size=audio_block_size,
-                flush_size=audio_flush_size
-            )
-        )
+    fileName = "audio%s.wav"%str(datetime.timestamp(datetime.now()))
+    audio_sink = audio_helpers.WaveSink(
+        open(fileName, 'wb'),
+        sample_rate=audio_sample_rate,
+        sample_width=audio_sample_width
+    )
+#    if output_audio_file:
+#        audio_sink = audio_helpers.WaveSink(
+#            open(output_audio_file, 'wb'),
+#            sample_rate=audio_sample_rate,
+#            sample_width=audio_sample_width
+#        )
+#    else:
+#        audio_sink = audio_device = (
+#            audio_device or audio_helpers.SoundDeviceStream(
+#                sample_rate=audio_sample_rate,
+#                sample_width=audio_sample_width,
+#                block_size=audio_block_size,
+#                flush_size=audio_flush_size
+#            )
+#        )
     # Create conversation stream with the given audio source and sink.
     conversation_stream = audio_helpers.ConversationStream(
         source=audio_source,
@@ -415,6 +438,7 @@ def main(api_endpoint, credentials, project_id,
             pathlib.Path(os.path.dirname(device_config)).mkdir(exist_ok=True)
             with open(device_config, 'w') as f:
                 json.dump(payload, f)
+            print("finished main")
 
     device_handler = device_helpers.DeviceRequestHandler(device_id)
 
@@ -437,10 +461,13 @@ def main(api_endpoint, credentials, project_id,
             logging.info('Device is blinking.')
             time.sleep(delay)
 
+    print("start with")
+    element = {}
     with SampleAssistant(lang, device_model_id, device_id,
                          conversation_stream, display,
                          grpc_channel, grpc_deadline,
                          device_handler) as assistant:
+        logging.debug("assistant with....")
         # If file arguments are supplied:
         # exit after the first turn of the conversation.
         if input_audio_file or output_audio_file:
@@ -453,18 +480,20 @@ def main(api_endpoint, credentials, project_id,
         # When the once flag is set, don't wait for a trigger. Otherwise, wait.
         wait_for_user_trigger = not once
 #        while True:
-        if True:
-            #if wait_for_user_trigger:
-            #    click.pause(info='Press Enter to send a new request...')
-            continue_conversation = assistant.assist()
-            # wait for user trigger if there is no follow-up turn in
-            # the conversation.
-            wait_for_user_trigger = not continue_conversation
+        #if wait_for_user_trigger:
+        #    click.pause(info='Press Enter to send a new request...')
+        logging.debug("assistant starts...")
+        assistant.assist()
+        logging.debug("assistant finishes....")
+        element["request"] = assistant.requestText
+        element["response"] = assistant.responseText
+        element["audio"] = fileName
 
-            # If we only want one conversation, break.
-#            if once and (not continue_conversation):
-#                break
+    print("finished with")
+    return element
 
 
 if __name__ == '__main__':
-    main()
+    element = main()
+    print("finished main")
+    print(str(element))

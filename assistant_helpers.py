@@ -21,7 +21,7 @@ from google.assistant.embedded.v1alpha2 import embedded_assistant_pb2
 
 def log_assist_request_without_audio(assist_request):
     """Log AssistRequest fields without audio data."""
-    if logging.getLogger().isEnabledFor(logging.DEBUG):
+    if True:
         resp_copy = embedded_assistant_pb2.AssistRequest()
         resp_copy.CopyFrom(assist_request)
         if len(resp_copy.audio_in) > 0:
@@ -31,11 +31,12 @@ def log_assist_request_without_audio(assist_request):
                           size)
             return
         logging.debug('AssistRequest: %s', resp_copy)
+        return resp_copy
 
 
 def log_assist_response_without_audio(assist_response):
     """Log AssistResponse fields without audio data."""
-    if logging.getLogger().isEnabledFor(logging.DEBUG):
+    if True:
         resp_copy = embedded_assistant_pb2.AssistResponse()
         resp_copy.CopyFrom(assist_response)
         has_audio_data = (resp_copy.HasField('audio_out') and
@@ -52,3 +53,4 @@ def log_assist_response_without_audio(assist_response):
                               size)
             return
         logging.debug('AssistResponse: %s', resp_copy)
+        return resp_copy
