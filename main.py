@@ -59,19 +59,21 @@ def process_event(event):
 
 def detect_callback():
     try:
-        detector.terminate()
+        #detector.terminate()
         snowboydecoder.play_audio_file(snowboydecoder.DETECT_DING)
         logger.debug("pushtotalk.main")
-        pushtotalk.main()
-        response = pushtotalk.response
+        response = pushtotalk.main()
+        #response = pushtotalk.response
         logger.debug("finished push to talk")
         logger.info(str(response))
+
     except Exception as e:
         logger.error(str(e))
         pass
 
     snowboydecoder.play_audio_file(snowboydecoder.DETECT_DONG)
     detector.start(detected_callback=detect_callback, interrupt_check=interrupt_callback, sleep_time=0.03)
+    logger.debug("detect callback last line...")
 
 
 
@@ -85,7 +87,7 @@ with open("/home/pi/.config/google-oauthlib-tool/credentials.json") as json_file
 grpc_channel = google.auth.transport.grpc.secure_authorized_channel(
             credentials, http_request, api_endpoint)
 
-detector = snowboydecoder.HotwordDetector('/home/pi/assistant/resources/alexa.umdl',sensitivity=[0.5])
+detector = snowboydecoder.HotwordDetector('/home/pi/assistant/resources/alexa.umdl',sensitivity=[0.5],audio_gain=True)
 
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -95,4 +97,4 @@ detector.start(detected_callback=detect_callback,
                interrupt_check=interrupt_callback,
                sleep_time=0.03)
 logger.debug("I'm waiting...")
-detector.terminate()
+#detector.terminate()
