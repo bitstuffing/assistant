@@ -2,11 +2,29 @@ import snowboydecoder
 import pushtotalk
 import json
 import google
-
+import logging
 import sys
 import signal
 
 interrupted = False
+
+#logging.basicConfig(filename='app.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
+#logging.getLogger().addHandler(logging.StreamHandler())
+
+logPath = "/home/pi/assistant"
+fileName = "logfile"
+
+logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+fileHandler = logging.FileHandler("{0}/{1}.log".format(logPath, fileName))
+fileHandler.setFormatter(logFormatter)
+logger.addHandler(fileHandler)
+
+consoleHandler = logging.StreamHandler()
+consoleHandler.setFormatter(logFormatter)
+logger.addHandler(consoleHandler)
 
 def _load_credentials(credentials_path):
     migrate = False
@@ -24,43 +42,32 @@ def _load_credentials(credentials_path):
     credentials.refresh(http_request)
     return credentials
 
-#credentials = _load_credentials("/home/pi/.config/google-oauthlib-tool/credentials.json")
-#http_request = google.auth.transport.requests.Request()
-#api_endpoint = 'embeddedassistant.googleapis.com'
-#with open("/home/pi/.config/google-oauthlib-tool/credentials.json") as json_file:
-#    json_model = json.load(json_file)
-#    device_model_id = json_model["client_id"]
-
-#grpc_channel = google.auth.transport.grpc.secure_authorized_channel(
-#            credentials, http_request, api_endpoint)
-
-#detector = snowboydecoder.HotwordDetector('/home/pi/assistant/resources/alexa.umdl',sensitivity=[0.5])
-
 def signal_handler(signal, frame):
     global interrupted
-    print("has been detected the ctrl+c signal")
+    logger.debug("has been detected the ctrl+c signal")
     interrupted = True
 
 def interrupt_callback():
     global interrupted
     if interrupted:
-        print("state is %s "%str(interrupted))
+        logger.info("state is %s "%str(interrupted))
     return interrupted
 
 def process_event(event):
-    print(event)
+    logger.debug(event)
 
 
 def detect_callback():
     try:
         detector.terminate()
         snowboydecoder.play_audio_file(snowboydecoder.DETECT_DING)
-        print("pushtotalk.main")
-        response = pushtotalk.main()
-        print("finished push to talk")
-        print(str(response))
+        logger.debug("pushtotalk.main")
+        pushtotalk.main()
+        response = pushtotalk.response
+        logger.debug("finished push to talk")
+        logger.info(str(response))
     except Exception as e:
-        print(str(e))
+        logger.error(str(e))
         pass
 
     snowboydecoder.play_audio_file(snowboydecoder.DETECT_DONG)
@@ -82,10 +89,10 @@ detector = snowboydecoder.HotwordDetector('/home/pi/assistant/resources/alexa.um
 
 signal.signal(signal.SIGINT, signal_handler)
 
-print('Listening... Press Ctrl+C to exit')
+logger.info('Listening... Press Ctrl+C to exit')
 
 detector.start(detected_callback=detect_callback,
                interrupt_check=interrupt_callback,
                sleep_time=0.03)
-print("I'm waiting...")
+logger.debug("I'm waiting...")
 detector.terminate()

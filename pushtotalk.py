@@ -20,7 +20,7 @@ import logging
 import os
 import os.path
 import pathlib2 as pathlib
-import sys
+#import sys
 import time
 import uuid
 
@@ -59,19 +59,9 @@ DEFAULT_GRPC_DEADLINE = 60 * 3 + 5
 
 from datetime import datetime
 
-class SampleAssistant(object):
-    """Sample Assistant that supports conversations and device actions.
+response = {}
 
-    Args:
-      device_model_id: identifier of the device model.
-      device_id: identifier of the registered device instance.
-      conversation_stream(ConversationStream): audio stream
-        for recording query and playing back assistant answer.
-      channel: authorized gRPC channel for connection to the
-        Google Assistant API.
-      deadline_sec: gRPC deadline in seconds for Google Assistant API call.
-      device_handler: callback for device actions.
-    """
+class SampleAssistant(object):
 
     def __init__(self, language_code, device_model_id, device_id,
                  conversation_stream, display,
@@ -84,31 +74,14 @@ class SampleAssistant(object):
         self.requestText = ""
         self.responseText = ""
 
-        # Opaque blob provided in AssistResponse that,
-        # when provided in a follow-up AssistRequest,
-        # gives the Assistant a context marker within the current state
-        # of the multi-Assist()-RPC "conversation".
-        # This value, along with MicrophoneMode, supports a more natural
-        # "conversation" with the Assistant.
         self.conversation_state = None
-        # Force reset of first conversation.
+
         self.is_new_conversation = True
 
-        # Create Google Assistant API gRPC client.
-        self.assistant = embedded_assistant_pb2_grpc.EmbeddedAssistantStub(
-            channel
-        )
+        self.assistant = embedded_assistant_pb2_grpc.EmbeddedAssistantStub(channel)
         self.deadline = deadline_sec
 
         self.device_handler = device_handler
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, etype, e, traceback):
-        if e:
-            return False
-        self.conversation_stream.close()
 
     def is_grpc_error_unavailable(e):
         is_grpc_error = isinstance(e, grpc.RpcError)
@@ -117,13 +90,8 @@ class SampleAssistant(object):
             return True
         return False
 
-    @retry(reraise=True, stop=stop_after_attempt(3),
-           retry=retry_if_exception(is_grpc_error_unavailable))
     def assist(self):
-        """Send a voice request to the Assistant and playback the response.
 
-        Returns: True if conversation should continue.
-        """
         continue_conversation = False
         device_actions_futures = []
 
@@ -133,18 +101,17 @@ class SampleAssistant(object):
         def iter_log_assist_requests():
             for c in self.gen_assist_requests():
                 assistant_helpers.log_assist_request_without_audio(c)
+                logging.debug("yield...")
                 yield c
             logging.debug('Reached end of AssistRequest iteration.')
 
-        # This generator yields AssistResponse proto messages
-        # received from the gRPC Google Assistant API.
         for resp in self.assistant.Assist(iter_log_assist_requests(),
                                           self.deadline):
             responseCopy = assistant_helpers.log_assist_response_without_audio(resp)
             if responseCopy is not None:
                 responseCopy = str(responseCopy)
                 logging.debug(responseCopy)
-                #classify
+                #classify response
                 if 'transcript: "' in responseCopy:
                    requestText = responseCopy[responseCopy.find('transcript: "')+len('transcript: "'):]
                    requestText = requestText[:requestText.find('"')]
@@ -167,7 +134,6 @@ class SampleAssistant(object):
                     self.conversation_stream.start_playback()
                     logging.info('Playing assistant response.')
                 self.conversation_stream.write(resp.audio_out.audio_data)
-                #print(str(len(resp.audio_out.audio_data)))
             if resp.dialog_state_out.conversation_state:
                 conversation_state = resp.dialog_state_out.conversation_state
                 logging.debug('Updating conversation state.')
@@ -198,11 +164,9 @@ class SampleAssistant(object):
 
         logging.info('Finished playing assistant response.')
         self.conversation_stream.stop_playback()
-#        return continue_conversation
-        return self.conversation_stream
+        #return self.conversation_stream
 
     def gen_assist_requests(self):
-        """Yields: AssistRequest messages to send to the API."""
 
         config = embedded_assistant_pb2.AssistConfig(
             audio_in_config=embedded_assistant_pb2.AudioInConfig(
@@ -332,6 +296,7 @@ def main(api_endpoint, credentials, project_id,
     """
     # Setup logging.
     logging.basicConfig(level=logging.DEBUG)
+    logging.debug("main thread...")
 
     # Load OAuth 2.0 credentials.
     try:
@@ -344,7 +309,7 @@ def main(api_endpoint, credentials, project_id,
         logging.error('Error loading credentials: %s', e)
         logging.error('Run google-oauthlib-tool to initialize '
                       'new OAuth 2.0 credentials.')
-        sys.exit(-1)
+        #sys.exit(-1)
 
     # Create an authorized gRPC channel.
     grpc_channel = google.auth.transport.grpc.secure_authorized_channel(
@@ -374,21 +339,7 @@ def main(api_endpoint, credentials, project_id,
         sample_rate=audio_sample_rate,
         sample_width=audio_sample_width
     )
-#    if output_audio_file:
-#        audio_sink = audio_helpers.WaveSink(
-#            open(output_audio_file, 'wb'),
-#            sample_rate=audio_sample_rate,
-#            sample_width=audio_sample_width
-#        )
-#    else:
-#        audio_sink = audio_device = (
-#            audio_device or audio_helpers.SoundDeviceStream(
-#                sample_rate=audio_sample_rate,
-#                sample_width=audio_sample_width,
-#                block_size=audio_block_size,
-#                flush_size=audio_flush_size
-#            )
-#        )
+
     # Create conversation stream with the given audio source and sink.
     conversation_stream = audio_helpers.ConversationStream(
         source=audio_source,
@@ -412,11 +363,11 @@ def main(api_endpoint, credentials, project_id,
             if not device_model_id:
                 logging.error('Option --device-model-id required '
                               'when registering a device instance.')
-                sys.exit(-1)
+                #sys.exit(-1)
             if not project_id:
                 logging.error('Option --project-id required '
                               'when registering a device instance.')
-                sys.exit(-1)
+                #sys.exit(-1)
             device_base_url = (
                 'https://%s/v1alpha2/projects/%s/devices' % (api_endpoint,
                                                              project_id)
@@ -433,67 +384,34 @@ def main(api_endpoint, credentials, project_id,
             r = session.post(device_base_url, data=json.dumps(payload))
             if r.status_code != 200:
                 logging.error('Failed to register device: %s', r.text)
-                sys.exit(-1)
+                #sys.exit(-1)
             logging.info('Device registered: %s', device_id)
             pathlib.Path(os.path.dirname(device_config)).mkdir(exist_ok=True)
             with open(device_config, 'w') as f:
                 json.dump(payload, f)
-            print("finished main")
+            logging.debug("finished main")
 
+
+    
     device_handler = device_helpers.DeviceRequestHandler(device_id)
-
-    @device_handler.command('action.devices.commands.OnOff')
-    def onoff(on):
-        if on:
-            logging.info('Turning device on')
-        else:
-            logging.info('Turning device off')
-
-    @device_handler.command('com.example.commands.BlinkLight')
-    def blink(speed, number):
-        logging.info('Blinking device %s times.' % number)
-        delay = 1
-        if speed == "SLOWLY":
-            delay = 2
-        elif speed == "QUICKLY":
-            delay = 0.5
-        for i in range(int(number)):
-            logging.info('Device is blinking.')
-            time.sleep(delay)
-
-    print("start with")
+    logging.debug("starting sample assistant...")
     element = {}
-    with SampleAssistant(lang, device_model_id, device_id,
+    assistant = SampleAssistant(lang, device_model_id, device_id,
                          conversation_stream, display,
                          grpc_channel, grpc_deadline,
-                         device_handler) as assistant:
-        logging.debug("assistant with....")
-        # If file arguments are supplied:
-        # exit after the first turn of the conversation.
-        if input_audio_file or output_audio_file:
-            assistant.assist()
-            return
-
-        # If no file arguments supplied:
-        # keep recording voice requests using the microphone
-        # and playing back assistant response using the speaker.
-        # When the once flag is set, don't wait for a trigger. Otherwise, wait.
-        wait_for_user_trigger = not once
-#        while True:
-        #if wait_for_user_trigger:
-        #    click.pause(info='Press Enter to send a new request...')
-        logging.debug("assistant starts...")
-        assistant.assist()
-        logging.debug("assistant finishes....")
-        element["request"] = assistant.requestText
-        element["response"] = assistant.responseText
-        element["audio"] = fileName
-
-    print("finished with")
+                         device_handler)
+    logging.debug("assistant starts...")
+    assistant.assist()
+    logging.debug("assistant finishes....")
+    element["request"] = assistant.requestText
+    element["response"] = assistant.responseText
+    element["audio"] = fileName
+    response = element
     return element
 
 
 if __name__ == '__main__':
+    logging.debug("start main pushtotalk")
     element = main()
-    print("finished main")
-    print(str(element))
+    logging.debug("finished main")
+    logging.debug(str(element))
