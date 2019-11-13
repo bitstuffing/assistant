@@ -111,13 +111,13 @@ def turnOffHeater():
         logging.debug("turned off")
 
 def turnOnTermo():
-    command = "ssh pi@192.168.1.11 echo \"{\"heater\":\"on\"}\" > /var/www/html/arduino/heater.json"
+    command = "echo \"{\\\"heater\\\":\\\"on\\\"}\" | ssh pi@192.168.1.11 -T \"cat > /var/www/html/arduino/heater.json\""
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
     exit, err = process.communicate()
     logging.debug("current crontab is: %s"%exit)
 
 def turnOffTermo():
-    command = "ssh pi@192.168.1.11 echo \"{\"heater\":\"off\"}\" > /var/www/html/arduino/heater.json"
+    command = "echo \"{\\\"heater\\\":\\\"off\\\"}\" | ssh pi@192.168.1.11 -T \"cat > /var/www/html/arduino/heater.json\""
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
     exit, err = process.communicate()
     logging.debug("current crontab is: %s"%exit)
