@@ -9,21 +9,6 @@ import time
 import os
 import subprocess
 
-logPath = "/home/pi/assistant"
-fileName = "logfile"
-
-#logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-#logger = logging.getLogger()
-#logger.setLevel(logging.DEBUG)
-
-#fileHandler = logging.FileHandler("{0}/{1}.log".format(logPath, fileName))
-#fileHandler.setFormatter(logFormatter)
-#logger.addHandler(fileHandler)
-
-#consoleHandler = logging.StreamHandler()
-#consoleHandler.setFormatter(logFormatter)
-#logger.addHandler(consoleHandler)
-
 
 def execute(jsonCommand):
     status = False
@@ -38,49 +23,31 @@ def execute(jsonCommand):
         if words[0] in ["enciende","encender","pon","activa","activar"]:
             logging.debug("'turn on' detected, activating second word")
             if words[1] in ["caldera","calefacci\\303\\263n"]:
-                #TODO, remove crontab and turn on with ssh > heater.json
                 text = "caldera encendida"
-                command = "ssh pi@192.168.1.11 crontab -l"
-                process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
-                exit, err = process.communicate()
-                logging.debug("current crontab is: %s"%exit)
-                if '#* * * * * python2 /opt/scripts/thermostat.py' in exit:
-                    exit = exit.replace('#* * * * * python2 /opt/scripts/thermostat.py','* * * * * python2 /opt/scripts/thermostat.py')
-                    command = "echo \"%s\" | ssh pi@192.168.1.11 crontab "%exit
-                    logging.debug("command is: %s"%command)
-                    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
-                    exit, err = process.communicate()
-                    logging.debug("turned on")
+                turnOnHeater()
+                play(text)
+                status = True
+            if words[1] in ["termostato","termo"]:
+                text = "termostato encendido"
+                turnOnTermo()
                 play(text)
                 status = True
         elif words[0] in ["apaga","apagar"]:
             if words[1] in ["caldera","calefacci\\303\\263n"]:
-                #TODO, remove crontab and turn on with ssh > heater.json
                 text = "caldera apagada"
-                command = "ssh pi@192.168.1.11 crontab -l"
-                process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
-                exit, err = process.communicate()
-                logging.debug("current crontab is: %s"%exit)
-                if '#* * * * * python2 /opt/scripts/thermostat.py' not in exit and '* * * * * python2 /opt/scripts/thermostat.py' in exit:
-                    exit = exit.replace('* * * * * python2 /opt/scripts/thermostat.py','#* * * * * python2 /opt/scripts/thermostat.py')
-                    command = "echo \"%s\" | ssh pi@192.168.1.11 crontab "%exit
-                    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
-                    exit, err = process.communicate()
-                    logging.debug("turned off")
+                turnOffHeater()
+                play(text)
+                status = True
+            if words[1] in ["termostato","termo"]:
+                text = "termostato apagado"
+                turnOffTermo()
                 play(text)
                 status = True
         elif words[0] in ["temperatura"]:
             if words[1] in ["casa","sal\\303\\263n"]:
-                command = "curl -s http://192.168.1.20 | grep -i \"Temperature = \" |  cut -d '=' -f 5"
-                process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
-                exit = process.communicate()
-                logging.debug("returned: '%s'"%exit[0])
-                text = "pues unos%s grados"%exit[0]
+                getCurrentTemperature()
                 play(text)
                 status = True
-
-
-
 
     return status
 
@@ -111,3 +78,46 @@ def play(text):
     subprocess.call(["mpg123", fileName])
     os.remove(fileName)
 
+def getCurrentTemperature():
+    command = "curl -s http://192.168.1.20 | grep -i \"Temperature = \" |  cut -d '=' -f 5"
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit = process.communicate()
+    logging.debug("returned: '%s'"%exit[0])
+    text = "pues unos%s grados"%exit[0]
+
+def turnOnHeater():
+    command = "ssh pi@192.168.1.11 crontab -l"
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit, err = process.communicate()
+    logging.debug("current crontab is: %s"%exit)
+    if '#* * * * * python2 /opt/scripts/thermostat.py' in exit:
+        exit = exit.replace('#* * * * * python2 /opt/scripts/thermostat.py','* * * * * python2 /opt/scripts/thermostat.py')
+        command = "echo \"%s\" | ssh pi@192.168.1.11 crontab "%exit
+        logging.debug("command is: %s"%command)
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+        exit, err = process.communicate()
+        logging.debug("turned on")
+
+def turnOffHeater():
+    command = "ssh pi@192.168.1.11 crontab -l"
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit, err = process.communicate()
+    logging.debug("current crontab is: %s"%exit)
+    if '#* * * * * python2 /opt/scripts/thermostat.py' not in exit and '* * * * * python2 /opt/scripts/thermostat.py' in exit:
+        exit = exit.replace('* * * * * python2 /opt/scripts/thermostat.py','#* * * * * python2 /opt/scripts/thermostat.py')
+        command = "echo \"%s\" | ssh pi@192.168.1.11 crontab "%exit
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+        exit, err = process.communicate()
+        logging.debug("turned off")
+
+def turnOnTermo():
+    command = "ssh pi@192.168.1.11 echo \"{\"heater\":\"on\"}\" > /var/www/html/arduino/heater.json"
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit, err = process.communicate()
+    logging.debug("current crontab is: %s"%exit)
+
+def turnOffTermo():
+    command = "ssh pi@192.168.1.11 echo \"{\"heater\":\"off\"}\" > /var/www/html/arduino/heater.json"
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit, err = process.communicate()
+    logging.debug("current crontab is: %s"%exit)
