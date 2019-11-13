@@ -7,7 +7,7 @@ import logging
 import json
 import time
 import os
-from subprocess import call
+import subprocess
 
 logPath = "/home/pi/assistant"
 fileName = "logfile"
@@ -50,8 +50,12 @@ def execute(jsonCommand):
                 status = True
         elif words[0] in ["temperatura"]:
             if words[1] in ["casa","sal\\303\\263n"]:
-                #TODO curl to 192.168.1.20 with termometer
-                text = "pues unos 23.50 grados"
+                command = "curl -s http://192.168.1.20 | grep -i \"Temperature = \" |  cut -d '=' -f 5"
+                process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+                exit = process.communicate()
+                logging.debug("returned: '%s'"%exit[0])
+                
+                text = "pues unos%s grados"%exit[0]
                 play(text)
                 status = True
 
@@ -84,6 +88,6 @@ def play(text):
     with open(os.path.basename(fileName), "wb") as local_file:
         local_file.write(f.read())
     logging.debug("done, play audio time")
-    call(["mpg123", fileName])
+    subprocess.call(["mpg123", fileName])
     os.remove(fileName)
 
