@@ -5,6 +5,7 @@ import google
 import logging
 import sys
 import signal
+import os
 
 interrupted = False
 
@@ -56,6 +57,7 @@ def process_event(event):
 
 def detect_callback():
     try:
+        pwd = os.getcwd()+"/"
         #detector.terminate()
         snowboydecoder.play_audio_file(snowboydecoder.DETECT_DING)
         logger.debug("pushtotalk.main")
@@ -63,7 +65,8 @@ def detect_callback():
         #response = pushtotalk.response
         logger.debug("finished push to talk")
         logger.info(str(response))
-
+        snowboydecoder.play_audio_file(pwd+response["audio"])
+        os.remove(pwd+response["audio"])
     except Exception as e:
         logger.error(str(e))
         pass

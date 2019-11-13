@@ -36,19 +36,11 @@ from google.assistant.embedded.v1alpha2 import (
 )
 from tenacity import retry, stop_after_attempt, retry_if_exception
 
-try:
-    from . import (
-        assistant_helpers,
-        audio_helpers,
-        browser_helpers,
-        device_helpers
-    )
-except (SystemError, ImportError):
-    import assistant_helpers
-    import audio_helpers
-    import browser_helpers
-    import device_helpers
-
+import assistant_helpers
+import audio_helpers
+import browser_helpers
+import device_helpers
+import time
 
 ASSISTANT_API_ENDPOINT = 'embeddedassistant.googleapis.com'
 END_OF_UTTERANCE = embedded_assistant_pb2.AssistResponse.END_OF_UTTERANCE
@@ -56,8 +48,6 @@ DIALOG_FOLLOW_ON = embedded_assistant_pb2.DialogStateOut.DIALOG_FOLLOW_ON
 CLOSE_MICROPHONE = embedded_assistant_pb2.DialogStateOut.CLOSE_MICROPHONE
 PLAYING = embedded_assistant_pb2.ScreenOutConfig.PLAYING
 DEFAULT_GRPC_DEADLINE = 60 * 3 + 5
-
-from datetime import datetime
 
 response = {}
 
@@ -107,10 +97,11 @@ class SampleAssistant(object):
 
         for resp in self.assistant.Assist(iter_log_assist_requests(),
                                           self.deadline):
+            #logging.debug("resp: %s"%str(resp))
             responseCopy = assistant_helpers.log_assist_response_without_audio(resp)
             if responseCopy is not None:
                 responseCopy = str(responseCopy)
-                logging.debug(responseCopy)
+                logging.debug("responseCopy: %s"%responseCopy)
                 #classify response
                 if 'transcript: "' in responseCopy:
                    requestText = responseCopy[responseCopy.find('transcript: "')+len('transcript: "'):]
@@ -253,7 +244,7 @@ def main(project_id=None,
                 flush_size=audio_flush_size
             )
         )
-    fileName = "audio%s.wav"%str(datetime.timestamp(datetime.now()))
+    fileName = "audio%s.wav"%str(time.time()).replace(".","")
     audio_sink = audio_helpers.WaveSink(
         open(fileName, 'wb'),
         sample_rate=audio_sample_rate,
