@@ -85,7 +85,7 @@ def getCurrentTemperature():
     logging.debug("returned: '%s'"%exit[0])
     text = "pues unos%s grados"%exit[0]
 
-def turnOnHeater():
+def turnOnTermo():
     command = "ssh pi@192.168.1.11 crontab -l"
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
     exit, err = process.communicate()
@@ -98,7 +98,7 @@ def turnOnHeater():
         exit, err = process.communicate()
         logging.debug("turned on")
 
-def turnOffHeater():
+def turnOffTermo():
     command = "ssh pi@192.168.1.11 crontab -l"
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
     exit, err = process.communicate()
@@ -110,13 +110,13 @@ def turnOffHeater():
         exit, err = process.communicate()
         logging.debug("turned off")
 
-def turnOnTermo():
+def turnOnHeater():
     command = "echo \"{\\\"heater\\\":\\\"on\\\"}\" | ssh pi@192.168.1.11 -T \"cat > /var/www/html/arduino/heater.json\""
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
     exit, err = process.communicate()
     logging.debug("current crontab is: %s"%exit)
 
-def turnOffTermo():
+def turnOffHeater():
     command = "echo \"{\\\"heater\\\":\\\"off\\\"}\" | ssh pi@192.168.1.11 -T \"cat > /var/www/html/arduino/heater.json\""
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
     exit, err = process.communicate()
