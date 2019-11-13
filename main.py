@@ -6,6 +6,7 @@ import logging
 import sys
 import signal
 import os
+import command
 
 interrupted = False
 
@@ -65,7 +66,9 @@ def detect_callback():
         #response = pushtotalk.response
         logger.debug("finished push to talk")
         logger.info(str(response))
-        snowboydecoder.play_audio_file(pwd+response["audio"])
+        executed = command.execute(response)
+        if not executed:
+            snowboydecoder.play_audio_file(pwd+response["audio"])
         os.remove(pwd+response["audio"])
     except Exception as e:
         logger.error(str(e))
