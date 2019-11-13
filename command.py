@@ -32,7 +32,7 @@ def execute(jsonCommand):
                 turnOnTermo()
                 play(text)
                 status = True
-        elif words[0] in ["apaga","apagar"]:
+        elif words[0] in ["apaga","apagar","para","parar"]:
             if words[1] in ["caldera","calefacci\\303\\263n"]:
                 text = "caldera apagada"
                 turnOffHeater()
@@ -42,6 +42,9 @@ def execute(jsonCommand):
                 text = "termostato apagado"
                 turnOffTermo()
                 play(text)
+                status = True
+            if words[1] in ["kodi","peli","serie"]:
+                kodiPauseResume()
                 status = True
         elif words[0] in ["temperatura"]:
             if words[1] in ["casa","sal\\303\\263n"]:
@@ -122,3 +125,12 @@ def turnOffHeater():
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
     exit, err = process.communicate()
     logging.debug("current crontab is: %s"%exit)
+
+def kodiPauseResume():
+    command = {"jsonrpc": "2.0", "method": "Player.PlayPause", "params": { "playerid": 0 }, "id": 1}
+    sendCmdToKodi(command)
+
+def sendCmdToKodi(cmd):
+    req = urllib2.Request('http://192.168.1.15/jsonrpc')
+    req.add_header('Content-Type', 'application/json')
+    response = urllib2.urlopen(req, json.dumps(cmd))
