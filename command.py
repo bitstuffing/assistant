@@ -45,7 +45,8 @@ def execute(jsonCommand):
                 status = True
         elif words[0] in ["temperatura"]:
             if words[1] in ["casa","sal\\303\\263n"]:
-                getCurrentTemperature()
+                temperature = getCurrentTemperature()
+                text = "pues unos%s grados"%temperature
                 play(text)
                 status = True
 
@@ -83,7 +84,7 @@ def getCurrentTemperature():
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
     exit = process.communicate()
     logging.debug("returned: '%s'"%exit[0])
-    text = "pues unos%s grados"%exit[0]
+    return exit[0]
 
 def turnOnTermo():
     command = "ssh pi@192.168.1.11 crontab -l"
