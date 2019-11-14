@@ -13,6 +13,8 @@ import subprocess
 def execute(jsonCommand):
     status = False
 
+    numbers = ["una","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez"]
+
     request = jsonCommand["request"]
     response = jsonCommand["response"]
 
@@ -20,37 +22,107 @@ def execute(jsonCommand):
         words = getWords(request)
         #TODO remove the word please
         logging.debug("verb is %s"%words[0])
-        if words[0] in ["enciende","encender","pon","activa","activar"]:
+        if words[0] in ["enciende","encender","pon","poner","activa","activar","reanudar","reanuda","pausar","pausa"]:
             logging.debug("'turn on' detected, activating second word")
             if words[1] in ["caldera","calefacci\\303\\263n"]:
-                text = "caldera encendida"
+                text = "Caldera encendida"
                 turnOnHeater()
                 play(text)
                 status = True
-            if words[1] in ["termostato","termo"]:
-                text = "termostato encendido"
+            elif words[1] in ["termostato","termo"]:
+                text = "Termostato encendido"
                 turnOnTermo()
                 play(text)
                 status = True
-        elif words[0] in ["apaga","apagar","para","parar"]:
+            elif words[1] in ["kodi","peli","serie"]:
+                kodiPauseResume()
+                play("pausa kodi")
+                status = True
+        elif words[0] in ["apaga","apagar","para","parar","quita","quitar"]:
             if words[1] in ["caldera","calefacci\\303\\263n"]:
-                text = "caldera apagada"
+                text = "Caldera apagada"
                 turnOffHeater()
                 play(text)
                 status = True
-            if words[1] in ["termostato","termo"]:
-                text = "termostato apagado"
+            elif words[1] in ["termostato","termo"]:
+                text = "Termostato apagado"
                 turnOffTermo()
                 play(text)
                 status = True
-            if words[1] in ["kodi","peli","serie"]:
-                kodiPauseResume()
+            elif words[1] in ["kodi","peli","serie"]:
+                kodiStop()
                 status = True
         elif words[0] in ["temperatura"]:
             if words[1] in ["casa","sal\\303\\263n"]:
                 temperature = getCurrentTemperature()
-                text = "pues unos%s grados"%temperature
+                text = "Unos%s grados"%temperature
                 play(text)
+                status = True
+        elif words[0] in ["sube","subir","arriba"]:
+            if words[1] in ["kodi"]:
+                kodiSendUp()
+                status = True
+            elif (words[1] in numbers or words[1].isdigit()) and len(words)>2 and words[2] in ["veces"]:
+                #now get index and launch command many times in a loop
+                times = 0
+                if words[1].isdigit():
+                    times = int(words[1])
+                else:
+                    times = numbers.index(words[1])+1
+                for i in range(0,times):
+                    if words[3] in ["kodi"]:
+                        kodiSendUp()
+                        status = True
+        elif words[0] in ["baja","bajar","abajo"]:
+            if words[1] in ["kodi"]:
+                kodiSendDown()
+                status = True
+            elif (words[1] in numbers or words[1].isdigit()) and len(words)>3 and words[2] in ["veces"]:
+                #now get index and launch command many times in a loop
+                times = 0
+                if words[1].isdigit():
+                    times = int(words[1])
+                else:
+                    times = numbers.index(words[1])+1
+                for i in range(0,times):
+                    if words[3] in ["kodi"]:
+                        kodiSendDown()
+                        status = True
+        elif words[0] in ["entra","entrar","enter"]:
+            if words[1] in ["kodi"]:
+                kodiSendEnter()
+                status = True
+        elif words[0] in ["atr\\303\\241s","retroceder","back"]:
+            if words[1] in ["kodi"]:
+                kodiSendBack()
+                status = True
+        elif words[0] in ["izquierda"]:
+            if words[1] in ["kodi"]:
+                kodiSendLeft()
+                status = True
+        elif words[0] in ["derecha"]:
+            if words[1] in ["kodi"]:
+                kodiSendRight()
+                status = True
+        elif words[0] in ["casa"]:
+            if words[1] in ["kodi"]:
+                kodiSendHome()
+                status = True
+        elif words[0] in ["env\\303\\255a","enviar","escribe","escribir"]:
+            size = len(words)
+            if words[size-1] in ["kodi"]:
+                text = ''
+                i=0
+                for word in words:
+                    logging.debug("word %s, text %s"%(word,text))
+                    if i != 0 and i!=len(words)-1:
+                        text += word
+                        if i != size-2:
+                            text += " "
+                    i+=1
+                logging.debug("text is %s"%(text))
+                kodiSendMessage(title='buscar',message=text)
+                kodiSendText(text)
                 status = True
 
     return status
@@ -60,7 +132,7 @@ def getWords(request):
     i=0
     for word in words[:]:
         words[i] = word.lower()
-        if word in ['el','la','los','las','por','favor','qu\\303\\251','hace','en','hay','puedes']:
+        if word in ['el','la','los','las','por','favor','qu\\303\\251','hace','en','hay','puedes','a','ante','cabe','con','contra','de','desde','entre','a','hacia','sin','son','sobre','tras','vuelve']: #'para'
             words.pop(i)
             i-=1 #continue
         i+=1
@@ -127,10 +199,68 @@ def turnOffHeater():
     logging.debug("current crontab is: %s"%exit)
 
 def kodiPauseResume():
-    command = {"jsonrpc": "2.0", "method": "Player.PlayPause", "params": { "playerid": 0 }, "id": 1}
-    sendCmdToKodi(command)
+    command = '{"jsonrpc": "2.0", "method": "Player.GetActivePlayers", "id": 1}'
+    playerJSON = sendCmdToKodi(command,text=True)
+    logging.debug(playerJSON)
+    playerId = json.loads(playerJSON)["result"][0]["playerid"]
+    logging.debug(playerId)
+    command = '{"jsonrpc": "2.0", "method": "Player.PlayPause", "params": { "playerid": %s }, "id": 1}'%str(playerId)
+    logging.debug(command)
+    sendCmdToKodi(command,text=True)
 
-def sendCmdToKodi(cmd):
-    req = urllib2.Request('http://192.168.1.15/jsonrpc')
+def kodiStop():
+    command = '{"jsonrpc": "2.0", "method": "Player.GetActivePlayers", "id": 1}'
+    playerJSON = sendCmdToKodi(command,text=True)
+    logging.debug(playerJSON)
+    playerId = json.loads(playerJSON)["result"][0]["playerid"]
+    command = '{"jsonrpc": "2.0", "method": "Player.Stop", "params": { "playerid": %s }, "id": 1}'%str(playerId)
+    logging.debug(command)
+    sendCmdToKodi(command,text=True)
+
+def kodiSendText(text):
+    command = '{"jsonrpc":"2.0","method":"Input.SendText","params":{"text":"%s","done":false},"id":0}'%text
+    logging.debug(command)
+    sendCmdToKodi(command,text=True)
+    kodiSendEnter()
+
+def kodiSendUp():
+    command = '{"jsonrpc":"2.0","method":"Input.Up","id":0}' 
+    sendCmdToKodi(command,text=True)
+
+def kodiSendDown():
+    command = '{"jsonrpc":"2.0","method":"Input.Down","id":0}' 
+    sendCmdToKodi(command,text=True)
+
+def kodiSendEnter():
+    command = '{"jsonrpc":"2.0","method":"Input.Select","id":0}' 
+    sendCmdToKodi(command,text=True)
+
+def kodiSendBack():
+    command = '{"jsonrpc":"2.0","method":"Input.Back","id":0}' 
+    sendCmdToKodi(command,text=True)
+
+def kodiSendLeft():
+    command = '{"jsonrpc":"2.0","method":"Input.Left","id":0}' 
+    sendCmdToKodi(command,text=True)
+
+def kodiSendRight():
+    command = '{"jsonrpc":"2.0","method":"Input.Right","id":0}' 
+    sendCmdToKodi(command,text=True)
+
+def kodiSendMessage(title='',message='',image='DefaultAddonTvInfo.png'):
+    command = '{"jsonrpc":"2.0","method":"GUI.ShowNotification","params":{"title":"%s","message":"%s","image":"%s"},"id":1}'%(title,message,image)
+    sendCmdToKodi(command,text=True)
+
+def kodiSendHome():
+    command = '{"jsonrpc":"2.0","method":"Input.Home","id":0}' 
+    sendCmdToKodi(command,text=True)
+
+
+def sendCmdToKodi(cmd,text=False):
+    req = urllib2.Request('http://192.168.1.15:8080/jsonrpc')
     req.add_header('Content-Type', 'application/json')
-    response = urllib2.urlopen(req, json.dumps(cmd))
+    if not text:
+        response = urllib2.urlopen(req, json.dumps(cmd))
+    else:
+        response = urllib2.urlopen(req, cmd)
+    return response.read()
