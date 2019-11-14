@@ -124,6 +124,10 @@ def execute(jsonCommand):
                 kodiSendMessage(title='buscar',message=text)
                 kodiSendText(text)
                 status = True
+        elif words[0] in ["mutea","mute","silenciar","silencia","silencio","desmutea","voz"]:
+            if words[1] in ["kodi"]:
+                kodiMuteUnmute()
+                status = True
 
     return status
 
@@ -253,6 +257,10 @@ def kodiSendMessage(title='',message='',image='DefaultAddonTvInfo.png'):
 
 def kodiSendHome():
     command = '{"jsonrpc":"2.0","method":"Input.Home","id":0}' 
+    sendCmdToKodi(command,text=True)
+
+def kodiMuteUnmute():
+    command = '{"jsonrpc":"2.0","id":1,"method":"Application.SetMute","params": { "mute": "toggle" }}'
     sendCmdToKodi(command,text=True)
 
 
