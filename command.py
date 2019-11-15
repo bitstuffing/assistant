@@ -11,7 +11,8 @@ import subprocess
 
 
 def execute(jsonCommand):
-    status = False
+    status = False #indicates if command execute needs to 'mute' the next audio provided by google assistant
+    text = ''
 
     numbers = ["una","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez"]
 
@@ -58,6 +59,13 @@ def execute(jsonCommand):
                 text = "Unos%s grados"%temperature
                 play(text)
                 status = True
+            elif words[len(words)-1] in ["calefacci\\303\\263n","caldera","termostato"]:
+                temp = getConfiguratedTemperature()
+                logging.debug("returned value is %s" % temp)
+                text = "temperatura ajustada a %s grados" % temp.replace('.00','')
+                logging.debug(text)
+                play(text)
+                status = True
         elif words[0] in ["sube","subir","arriba"]:
             if words[1] in ["kodi"]:
                 kodiSendUp()
@@ -88,6 +96,13 @@ def execute(jsonCommand):
                     if words[3] in ["kodi"]:
                         kodiSendDown()
                         status = True
+        elif words[0] in ["ajustar","ajusta"]:
+            if words[1] in ["temperatura","termostato","caldera","calefacci\\202\\263n"] and words[2].replace(',','').isdigit() and words[3] in ["grados"]:
+                #now let's put the current temperature if it's a number
+                setTermo(words[2].replace(",","."))
+                text = "temperatura ajustada a %s grados" % words[2]
+                play(text)
+                status = True
         elif words[0] in ["entra","entrar","enter"]:
             if words[1] in ["kodi"]:
                 kodiSendEnter()
@@ -136,7 +151,7 @@ def getWords(request):
     i=0
     for word in words[:]:
         words[i] = word.lower()
-        if word in ['el','la','los','las','por','favor','qu\\303\\251','hace','en','hay','puedes','a','ante','cabe','con','contra','de','desde','entre','a','hacia','sin','son','sobre','tras','vuelve']: #'para'
+        if word in ['el','la','los','las','por','favor','qu\\303\\251','hace','en','hay','tiene','puedes','a','ante','cabe','con','contra','de','desde','entre','a','hacia','sin','son','sobre','tras','vuelve']: #'para'
             words.pop(i)
             i-=1 #continue
         i+=1
@@ -189,6 +204,29 @@ def turnOffTermo():
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
         exit, err = process.communicate()
         logging.debug("turned off")
+
+def setTermo(temperature):
+    command = "ssh pi@192.168.1.11 cat /opt/scripts/configuration.json"
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit, err = process.communicate()
+    logging.debug("current termostat configuration is: %s\n, needs to be set to '%s'" % (exit,temperature))
+    #now change the current temperature to the target
+    jsonData = json.loads(exit)
+    temp = "%.2f" % float(temperature)
+    jsonData["temperature"] = temp
+    newData = json.dumps(jsonData, indent=4, sort_keys=True)
+    command = "echo '%s' | ssh pi@192.168.1.11 -T \"cat > /opt/scripts/configuration.json\"" % newData
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit, err = process.communicate()
+
+def getConfiguratedTemperature():
+    command = "ssh pi@192.168.1.11 cat /opt/scripts/configuration.json"
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit, err = process.communicate()
+    logging.debug("current termostat configuration is: %s" % (exit))
+    jsonData = json.loads("".join(exit.split()))
+    logging.debug("data loaded")
+    return jsonData["temperature"]
 
 def turnOnHeater():
     command = "echo \"{\\\"heater\\\":\\\"on\\\"}\" | ssh pi@192.168.1.11 -T \"cat > /var/www/html/arduino/heater.json\""
