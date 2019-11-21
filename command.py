@@ -39,6 +39,34 @@ def execute(jsonCommand):
                 kodiPauseResume()
                 play("pausa kodi")
                 status = True
+            elif words[1] in ["tv","tele","televisi\\303\\263n"]:
+				#put channel
+                if len(words)>2:
+                    logging.debug("%s" % words[2])
+                    if words[2].isdigit():
+                        sendTvChannel(int(words[2]))
+                        status = True
+                    elif words[2] in numbers:
+                        number = numbers.index(words[2])+1 #zero is not in array
+                        sendTvChannel(number)
+                        status = True
+                else:
+                    tvTurnOff()
+                    status = True
+            elif words[1] in numbers or words[1].isdigit():
+                logging.debug("number detected %s" % words[1])
+                if words[2] in ["tv","tele","televisi\\303\\263n"]:
+                    logging.debug("%s" % words[2])
+                    if words[1].isdigit():
+                        sendTvChannel(int(words[1]))
+                        status = True
+                    elif words[1] in numbers:
+                        number = numbers.index(words[1])+1 #zero is not in array
+                        sendTvChannel(number)
+                        status = True
+            elif words[1] in ["luces","luz"]:
+                lightTurnOn()
+                status = True
         elif words[0] in ["apaga","apagar","para","parar","quita","quitar"]:
             if words[1] in ["caldera","calefacci\\303\\263n"]:
                 text = "Caldera apagada"
@@ -52,6 +80,15 @@ def execute(jsonCommand):
                 status = True
             elif words[1] in ["kodi","peli","serie"]:
                 kodiStop()
+                status = True
+            elif words[1] in ["tv","tele","televisi\\303\\263n"]:
+                tvTurnOff()
+                status = True
+            elif words[1] in ["luces","luz"]:
+                lightTurnOff()
+                status = True
+            elif words[1] in ["raspberry","ordenador","asistente"]:
+                shutdown()
                 status = True
         elif words[0] in ["temperatura"]:
             if words[1] in ["casa","sal\\303\\263n"]:
@@ -81,6 +118,11 @@ def execute(jsonCommand):
                     if words[3] in ["kodi"]:
                         kodiSendUp()
                         status = True
+            elif words[1] in ["tv","tele","televisi\\303\\263n"]:
+                if words[2] in ["volumen"]:
+                    tvVolUp()
+                elif words[2] in ["canal"]:
+                    tvChannelUp()
         elif words[0] in ["baja","bajar","abajo"]:
             if words[1] in ["kodi"]:
                 kodiSendDown()
@@ -96,6 +138,13 @@ def execute(jsonCommand):
                     if words[3] in ["kodi"]:
                         kodiSendDown()
                         status = True
+            elif words[1] in ["tv","tele","televisi\\303\\263n"]:
+                if words[2] in ["volumen"]:
+                    tvVolDown()
+                    status = True
+                elif words[2] in ["canal"]:
+                    tvChannelDown()
+                    status = True
         elif words[0] in ["ajustar","ajusta"]:
             if words[1] in ["temperatura","termostato","caldera","calefacci\\202\\263n"] and words[2].replace(',','').isdigit() and words[3] in ["grados"]:
                 #now let's put the current temperature if it's a number
@@ -143,15 +192,21 @@ def execute(jsonCommand):
             if words[1] in ["kodi"]:
                 kodiMuteUnmute()
                 status = True
+            elif words[1] in ["tv","televisi\\303\\263n","tele"]:
+                tvMuteUnmute()
+                status = True
+        elif words[0] in ["reinicia","reiniciar","resetea","resetear"]:
+            if words[1] in ["raspberry","ordenador","asistente"]:
+                reboot()
 
     return status
 
 def getWords(request):
-    words = request.split(" ")
+    words = request.lower().split(" ")
     i=0
     for word in words[:]:
-        words[i] = word.lower()
-        if word in ['el','la','los','las','por','favor','qu\\303\\251','hace','en','hay','tiene','puedes','a','ante','cabe','con','contra','de','desde','entre','a','hacia','sin','son','sobre','tras','vuelve']: #'para'
+        words[i] = word.replace("primera","una").replace("uno","una").replace("sexta","seis") #patch
+        if word in ['un','el','la','los','las','por','favor','qu\\303\\251','hace','en','hay','tiene','puedes','a','ante','cabe','con','contra','de','desde','entre','a','hacia','sin','son','sobre','tras','vuelve']: #'para'
             words.pop(i)
             i-=1 #continue
         i+=1
@@ -301,7 +356,6 @@ def kodiMuteUnmute():
     command = '{"jsonrpc":"2.0","id":1,"method":"Application.SetMute","params": { "mute": "toggle" }}'
     sendCmdToKodi(command,text=True)
 
-
 def sendCmdToKodi(cmd,text=False):
     req = urllib2.Request('http://192.168.1.15:8080/jsonrpc')
     req.add_header('Content-Type', 'application/json')
@@ -310,3 +364,49 @@ def sendCmdToKodi(cmd,text=False):
     else:
         response = urllib2.urlopen(req, cmd)
     return response.read()
+
+def sendTvChannel(number):
+    numWords = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
+    channel = numWords[number]
+    irCommand("tv",channel)
+
+def tvMuteUnmute():
+    irCommand("tv","mute")
+
+def tvTurnOff():
+    irCommand("tv","power")
+
+def tvChannelUp():
+    irCommand("tv","p_up")
+
+def tvChannelDown():
+    irCommand("tv","p_down")
+
+def tvVolUp():
+    irCommand("tv","vol_up")
+
+def tvVolDown():
+    irCommand("tv","vol_down")
+
+def lightTurnOn():
+    irCommand("light","power_on")
+
+def lightTurnOff():
+    irCommand("light","power_off")
+
+def shutdown():
+    command = "sudo shutdown -h now"
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit, err = process.communicate()
+
+def reboot():
+    command = "sudo reboot"
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit, err = process.communicate()
+
+def irCommand(dis,cmd):
+    command = "irsend send_once %s %s" % (dis,cmd)
+    logging.debug(command)
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit = process.communicate()
+
