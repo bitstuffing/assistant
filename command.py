@@ -120,9 +120,12 @@ def execute(jsonCommand):
                         status = True
             elif words[1] in ["tv","tele","televisi\\303\\263n"]:
                 if words[2] in ["volumen"]:
-                    tvVolUp()
+                    for i in range(0,5):
+                        tvVolUp()
+                    status = True
                 elif words[2] in ["canal"]:
                     tvChannelUp()
+                    status = True
         elif words[0] in ["baja","bajar","abajo"]:
             if words[1] in ["kodi"]:
                 kodiSendDown()
@@ -140,7 +143,8 @@ def execute(jsonCommand):
                         status = True
             elif words[1] in ["tv","tele","televisi\\303\\263n"]:
                 if words[2] in ["volumen"]:
-                    tvVolDown()
+                    for i in range(0,5):
+                        tvVolDown()
                     status = True
                 elif words[2] in ["canal"]:
                     tvChannelDown()
@@ -405,7 +409,12 @@ def reboot():
     exit, err = process.communicate()
 
 def irCommand(dis,cmd):
-    command = "irsend send_once %s %s" % (dis,cmd)
+    command = "irsend send_start %s %s" % (dis,cmd)
+    logging.debug(command)
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+    exit = process.communicate()
+    time.sleep(1)
+    command = "irsend send_stop %s %s" % (dis,cmd)
     logging.debug(command)
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
     exit = process.communicate()
